@@ -11,6 +11,7 @@ from google.genai.types import (
 from PIL import Image
 
 from app.models.response_models import DetectedObject, DetectionResponse
+from app.utils.logger import logger
 
 # 환경 변수 로드
 load_dotenv()
@@ -64,6 +65,7 @@ def parse_gemini_response(response: GenerateContentResponse) -> List[DetectedObj
     detected_objects = []
 
     if not response.candidates or not response.candidates[0].content.parts:
+        logger.info("Gemini API 응답이 비어있습니다.")
         return detected_objects
 
     # 텍스트 응답 추출
@@ -101,6 +103,7 @@ def parse_gemini_response(response: GenerateContentResponse) -> List[DetectedObj
             )
     except Exception as e:
         # 파싱 실패 시 에러 메시지 포함 객체 생성
+        logger.debug(f"응답 파싱 오류: {e}")
         detected_objects.append(
             DetectedObject(
                 label="parsing_error",
@@ -131,6 +134,7 @@ def create_detection_response(
             success=True, objects=objects, total_objects=len(objects)
         )
     else:
+        logger.debug(f"탐지 실패: {error_message}")
         return DetectionResponse(success=False, objects=[], total_objects=0)
 
 
@@ -159,4 +163,5 @@ async def detect_objects(image_data: bytes) -> DetectionResponse:
 
     except Exception as e:
         # 오류 응답 생성
+        logger.debug(f"탐지 중 오류 발생: {e}")
         return create_detection_response(False, [], str(e))

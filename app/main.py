@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.models.response_models import DetectionResponse
 from app.services.gemini_service import detect_objects
 from app.utils.image_utils import resize_image, validate_image
+from app.utils.logger import logger
 
 app = FastAPI(title="Object Detection API with Gemini")
 
@@ -31,20 +32,21 @@ async def detect_image(image: UploadFile = None):
 
         # 이미지 유효성 검사
         if not validate_image(contents):
+            logger.error("Invalid image format")
             raise HTTPException(
                 status_code=400, detail="유효하지 않은 이미지 형식입니다"
             )
 
-        # 이미지 리사이징 (대용량 이미지 처리를 위해)
+        # 이미지 리사이징
         resized_image = resize_image(contents, max_size=(1024, 1024))
 
         # Gemini API로 객체 탐지 수행
         detection_result = await detect_objects(resized_image)
 
         return detection_result
-    except Exception:
-        # 에러 발생 시 간소화된 오류 응답
-        raise DetectionResponse(success=False, objects=[], total_objects=0)
+    except Exception as e:
+        logger.error(f"Error during detection: {e}")
+        return DetectionResponse(success=False, objects=[], total_objects=0)
 
 
 if __name__ == "__main__":
