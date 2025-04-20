@@ -1,0 +1,33 @@
+[project]
+name = "binny-buddy-ai"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "aiofiles>=24.1.0",
+    "fastapi>=0.115.12",
+    "google-genai>=1.11.0",
+    "google-generativeai>=0.8.5",
+    "pillow>=11.2.1",
+    "pydantic>=2.11.3",
+    "python-dotenv>=1.1.0",
+    "python-multipart>=0.0.20",
+    "uvicorn>=0.34.2",
+]
+
+[tool.rye]
+managed = true
+dev-dependencies = []
+
+[tool.black]
+line-length = 88
+target-version = ["py310"]
+
+[tool.isort]
+profile = "black"
+
+[dependency-groups]
+dev = [
+    "pre-commit>=4.2.0",
+]
