@@ -1,3 +1,4 @@
+import base64
 import json
 import os
 import re
@@ -6,13 +7,16 @@ from typing import List, Optional
 
 from dotenv import load_dotenv
 from google import genai
-from google.genai.types import (
-    GenerateContentResponse,
-)
+from google.genai.types import GenerateContentConfig, GenerateContentResponse
 from PIL import Image
 from pydantic import TypeAdapter
 
-from app.models.response_models import DetectedObject, DetectionResponse
+from app.models.response_models import (
+    AssetResponse,
+    DetectedObject,
+    DetectionResponse,
+    FileInfo,
+)
 from app.utils.logger import logger
 
 # 환경 변수 로드
@@ -141,3 +145,65 @@ async def detect_objects(image_data: bytes) -> DetectionResponse:
     except Exception as e:
         logger.debug(f"탐지 중 오류 발생: {e}")
         return create_detection_response(False, [], str(e))
+
+
+async def request_create_asset(
+    image_data: bytes,
+    asset_name: str,
+) -> AssetResponse:
+    """
+    Gemini API를 사용하여 자산을 생성하는 함수
+
+    Args:
+        image_data: 원본 이미지 바이너리 데이터
+        asset_name: 자산 이름
+        asset_description: 자산 설명
+        asset_tags: 자산 태그 목록
+
+    Returns:
+        AssetResponse: 생성된 자산 정보
+    """
+    try:
+        # 입력 이미지 준비
+        image = Image.open(BytesIO(image_data))
+
+        # 프롬프트 준비
+        text_input = (
+            "This is a texture for a 3D model. "
+            "Please generate variations of this texture "
+            "with different colors and patterns. "
+            "Do not change the shape or structure of the texture."
+        )
+
+        # Gemini API 호출
+        response = client.models.generate_content(
+            model="gemini-2.0-flash-exp-image-generation",
+            contents=[text_input, image],
+            config=GenerateContentConfig(response_modalities=["Text", "Image"]),
+        )
+
+        generated_files = []
+
+        # 응답 처리
+        for idx, part in enumerate(response.candidates[0].content.parts):
+            if part.inline_data is not None:
+                # 이미지 데이터 읽기
+                image_data = part.inline_data.data
+                image_base64 = base64.b64encode(image_data).decode("utf-8")
+
+                file_info = FileInfo(
+                    filename=f"{asset_name}_variant_{idx}.png",
+                    content_base64=image_base64,
+                    size=len(image_data),
+                )
+                generated_files.append(file_info)
+
+        if not generated_files:
+            logger.debug("생성된 이미지가 없습니다.")
+            return AssetResponse(success=False, files=[])
+
+        return AssetResponse(success=True, files=generated_files)
+
+    except Exception as e:
+        logger.debug(f"에셋 생성 중 오류 발생: {e}")
+        return AssetResponse(success=False, files=[])

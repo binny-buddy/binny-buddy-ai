@@ -26,3 +26,14 @@ class UnprocessableEntityResponse(BaseModel):
     detail: str
     error_code: int = 422
     error_message: str = "Unprocessable Entity"
+
+
+class FileInfo(BaseModel):
+    filename: str
+    content_base64: str
+    size: Optional[int] = None
+
+
+class AssetResponse(BaseModel):
+    success: bool
+    files: List[FileInfo]
