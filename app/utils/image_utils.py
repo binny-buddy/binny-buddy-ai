@@ -3,6 +3,9 @@ from typing import Optional, Tuple
 
 from PIL import Image
 
+from app.models.asset import AssetType
+from app.models.detection import PlasticType
+
 
 def get_image_format(image_data: bytes) -> Optional[str]:
     """
@@ -35,7 +38,7 @@ def validate_image(image_data: bytes) -> bool:
         img_format = get_image_format(image_data)
 
         # 이미지 포맷 확인
-        if img_format not in ["jpeg", "png", "jpg", "bmp"]:
+        if img_format not in ["jpeg", "png", "jpg", "bmp", "webp"]:
             return False
 
         img = Image.open(io.BytesIO(image_data))
@@ -66,3 +69,24 @@ def resize_image(image_data: bytes, max_size: Tuple[int, int] = (1024, 1024)) ->
     except Exception:
         # 리사이징 실패 시 원본 이미지 반환
         return image_data
+
+
+def get_origin_image(model: PlasticType, type: AssetType) -> Image:
+    """
+    모델과 타입에 따라 원본 이미지 경로를 반환하는 함수
+
+    Args:
+        model: 모델 (PlasticType)
+        type: 타입 (AssetType)
+
+    Returns:
+        str: 원본 이미지 경로
+    """
+
+    file = f"app/assets/{model.value}_{type.value}.png"
+    try:
+        img = Image.open(file)
+        return img
+    except Exception as e:
+        print(f"Error loading image: {e}")
+        return None

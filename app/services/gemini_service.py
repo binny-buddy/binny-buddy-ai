@@ -11,11 +11,13 @@ from google.genai.types import GenerateContentConfig, GenerateContentResponse
 from PIL import Image
 from pydantic import TypeAdapter
 
-from app.models.response_models import (
+from app.models import (
+    AssetFile,
     AssetResponse,
     DetectedObject,
     DetectionResponse,
-    FileInfo,
+    PlasticType,
+    WasteStatus,
 )
 from app.utils.logger import logger
 
@@ -47,9 +49,11 @@ async def call_gemini_api(image: Image.Image) -> GenerateContentResponse:
     # 프롬프트 준비
     text_input = (
         "Detect all plastic waste in the image. "
-        "determine whether the plastic is recyclable "
-        "by describing its condition as either 'clean' or 'dirty'. "
+        "Label will be one of the following: "
+        f"{', '.join([label.value for label in PlasticType])}. "
         "The box_2d should be [ymin, xmin, ymax, xmax] "
+        f"Describe its status as either {WasteStatus.clean} or {WasteStatus.dirty}. "
+        "Provide a how_to_recycle description for each detected object. "
     )
 
     return client.models.generate_content(
@@ -148,30 +152,20 @@ async def detect_objects(image_data: bytes) -> DetectionResponse:
 
 
 async def request_create_asset(
-    image_data: bytes,
-    asset_name: str,
+    image: Image.Image,
+    asset_model: str,
+    asset_type: str,
 ) -> AssetResponse:
     """
     Gemini API를 사용하여 자산을 생성하는 함수
-
-    Args:
-        image_data: 원본 이미지 바이너리 데이터
-        asset_name: 자산 이름
-        asset_description: 자산 설명
-        asset_tags: 자산 태그 목록
-
-    Returns:
-        AssetResponse: 생성된 자산 정보
     """
-    try:
-        # 입력 이미지 준비
-        image = Image.open(BytesIO(image_data))
 
+    try:
         # 프롬프트 준비
         text_input = (
             "This is a texture for a 3D model. "
             "Please generate variations of this texture "
-            "with different colors and patterns. "
+            "with plastic waste cutely arranged. "
             "Do not change the shape or structure of the texture."
         )
 
@@ -182,28 +176,27 @@ async def request_create_asset(
             config=GenerateContentConfig(response_modalities=["Text", "Image"]),
         )
 
-        generated_files = []
-
         # 응답 처리
-        for idx, part in enumerate(response.candidates[0].content.parts):
+        first_image_data = None
+
+        for part in response.candidates[0].content.parts:
             if part.inline_data is not None:
-                # 이미지 데이터 읽기
-                image_data = part.inline_data.data
-                image_base64 = base64.b64encode(image_data).decode("utf-8")
+                first_image_data = part.inline_data.data
+                break  # 첫 번째 파일만 가져옴
 
-                file_info = FileInfo(
-                    filename=f"{asset_name}_variant_{idx}.png",
-                    content_base64=image_base64,
-                    size=len(image_data),
-                )
-                generated_files.append(file_info)
-
-        if not generated_files:
+        if not first_image_data:
             logger.debug("생성된 이미지가 없습니다.")
-            return AssetResponse(success=False, files=[])
+            return AssetResponse(success=False)
 
-        return AssetResponse(success=True, files=generated_files)
+        image_base64 = base64.b64encode(first_image_data).decode("utf-8")
+        file_info = AssetFile(
+            filename=f"{asset_model}_{asset_type}.png",
+            content_base64=image_base64,
+            size=len(first_image_data),
+        )
+
+        return AssetResponse(success=True, file=file_info)
 
     except Exception as e:
         logger.debug(f"에셋 생성 중 오류 발생: {e}")
-        return AssetResponse(success=False, files=[])
+        return AssetResponse(success=False)

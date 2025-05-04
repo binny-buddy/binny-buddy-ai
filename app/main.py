@@ -2,9 +2,14 @@ import uvicorn
 from fastapi import FastAPI, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.models.response_models import DetectionResponse, UnprocessableEntityResponse
+from app.models import (
+    DetectionResponse,
+    UnprocessableEntityResponse,
+)
+from app.models.asset import AssetResponse, AssetType
+from app.models.detection import PlasticType
 from app.services.gemini_service import detect_objects, request_create_asset
-from app.utils.image_utils import validate_image
+from app.utils.image_utils import get_origin_image, validate_image
 from app.utils.logger import logger
 
 app = FastAPI(title="Object Detection API with Gemini")
@@ -34,7 +39,7 @@ async def root():
         }
     },
 )
-async def detect_image(image: UploadFile = None):
+async def detect_image(image: UploadFile):
     try:
         if image is None:
             logger.info("No image provided")
@@ -60,29 +65,26 @@ async def detect_image(image: UploadFile = None):
         return DetectionResponse(success=False, objects=[], total_objects=0)
 
 
-@app.post("/assets/create")
-async def create_asset(type="textures", file: UploadFile = None):
+@app.post(
+    "/assets/create",
+    response_model=AssetResponse,
+)
+async def create_asset(model: PlasticType, asset_type: AssetType = AssetType.texture):
     """
     Create an asset in the specified type.
     :param type: The type of asset to create (e.g., textures, models).
     :param file: The file to upload.
     :return: A message indicating the success or failure of the operation.
     """
+
+    origin_asset = get_origin_image(model=model, type=asset_type)
+
     try:
-        if file is None:
-            logger.info("No file provided")
-            raise HTTPException(status_code=422, detail="No file provided")
-
-        contents = await file.read()
-
-        # Validate the file type
-        if not validate_image(contents):
-            logger.info("Invalid file format")
-            raise HTTPException(status_code=422, detail="Invalid file format")
 
         response = await request_create_asset(
-            image_data=contents,
-            asset_name=file.filename,
+            image=origin_asset,
+            asset_model=model.value,
+            asset_type=asset_type.value,
         )
         return response
 
@@ -92,7 +94,10 @@ async def create_asset(type="textures", file: UploadFile = None):
 
     except Exception as e:
         logger.error(f"Error during asset creation: {e}")
-        return {"success": False, "message": "Asset creation failed"}
+        return AssetResponse(
+            success=False,
+            file=None,
+        )
 
 
 if __name__ == "__main__":
