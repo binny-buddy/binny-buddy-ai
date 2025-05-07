@@ -83,7 +83,7 @@ def get_origin_image(model: PlasticType, type: AssetType) -> Image:
         str: 원본 이미지 경로
     """
 
-    file = f"app/assets/{model.value}_{type.value}.png"
+    file = f"app/assets/{model.value}_{type.value}.jpg"
     try:
         img = Image.open(file)
         return img

@@ -29,6 +29,15 @@ async def root():
     return {"message": "Welcome to Object Detection API with Gemini"}
 
 
+@app.get("/health")
+async def health_check():
+    """
+    Health check endpoint.
+    :return: A message indicating the service is running.
+    """
+    return {"status": "ok"}
+
+
 @app.post(
     "/detect",
     response_model=DetectionResponse,
