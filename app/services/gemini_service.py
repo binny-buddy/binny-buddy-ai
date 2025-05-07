@@ -2,6 +2,7 @@ import base64
 import json
 import os
 import re
+from datetime import datetime
 from io import BytesIO
 from typing import List, Optional
 
@@ -166,7 +167,7 @@ async def request_create_asset(
             "This is a texture for a 3D model. "
             "Please generate cute variations of this texture "
             "Do not change the shape or structure of the texture. "
-            "Only modify the red section in the center while keeping "
+            "Only modify the center red section, while keeping "
             "the rest of the texture the same. "
         )
         # Gemini API 호출
@@ -188,9 +189,16 @@ async def request_create_asset(
             logger.debug("생성된 이미지가 없습니다.")
             return AssetResponse(success=False)
 
+        # 파일 저장
+        file_name = f"{asset_model}_{asset_type}_{datetime.now()}.jpg"
+        file_path = os.path.join("app/assets/created", file_name)
+        os.makedirs(os.path.dirname(file_path), exist_ok=True)
+        with open(file_path, "wb") as f:
+            f.write(first_image_data)
+
         image_base64 = base64.b64encode(first_image_data).decode("utf-8")
         file_info = AssetFile(
-            filename=f"{asset_model}_{asset_type}.png",
+            filename=file_name,
             content_base64=image_base64,
             size=len(first_image_data),
         )

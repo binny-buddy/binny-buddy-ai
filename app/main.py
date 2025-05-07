@@ -8,6 +8,7 @@ from app.models import (
 )
 from app.models.asset import AssetResponse, AssetType
 from app.models.detection import PlasticType
+from app.services.asset import get_created_asset
 from app.services.gemini_service import detect_objects, request_create_asset
 from app.utils.image_utils import get_origin_image, validate_image
 from app.utils.logger import logger
@@ -96,6 +97,38 @@ async def create_asset(model: PlasticType, asset_type: AssetType = AssetType.tex
             asset_type=asset_type.value,
         )
         return response
+
+    except HTTPException as http_exc:
+        # logger.debug(f"HTTP Exception: {http_exc.detail}")
+        raise http_exc
+
+    except Exception as e:
+        logger.error(f"Error during asset creation: {e}")
+        return AssetResponse(
+            success=False,
+            file=None,
+        )
+
+
+@app.get("/asset/", response_model=AssetResponse)
+async def get_asset(model: PlasticType, asset_type: AssetType = AssetType.texture):
+    """
+    Get an asset in the specified type.
+    :param type: The type of asset to create (e.g., textures, models).
+    :param file: The file to upload.
+    :return: A message indicating the success or failure of the operation.
+    """
+
+    created_asset = get_created_asset(
+        model=model,
+        asset_type=asset_type,
+    )
+
+    try:
+        return AssetResponse(
+            success=True,
+            file=created_asset,
+        )
 
     except HTTPException as http_exc:
         # logger.debug(f"HTTP Exception: {http_exc.detail}")
