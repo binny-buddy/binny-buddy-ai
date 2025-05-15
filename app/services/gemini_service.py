@@ -165,10 +165,9 @@ async def request_create_asset(
         # 프롬프트 준비
         text_input = (
             "This is a texture for a 3D model. "
-            "Please generate cute variations of this texture "
+            "Generate cute variations of this texture "
             "Do not change the shape or structure of the texture. "
-            "Only modify the center red section, while keeping "
-            "the rest of the texture the same. "
+            "Only change little details of the texture. "
         )
         # Gemini API 호출
         response = client.models.generate_content(
